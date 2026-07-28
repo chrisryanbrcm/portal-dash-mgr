@@ -16,7 +16,12 @@
       "Bash(/tmp/testvenv2/bin/pip install *)",
       "Bash(rm -rf /tmp/testvenv2 *)",
       "Bash(curl -s localhost:5000/)",
-      "Bash(curl -s localhost:5000/api/import -X POST -H \"Content-Type: application/json\" -d '{}')"
+      "Bash(curl -s localhost:5000/api/import -X POST -H \"Content-Type: application/json\" -d '{}')",
+      "Bash(python3 -m venv /tmp/testvenv3)",
+      "Bash(/tmp/testvenv3/bin/pip install *)",
+      "Bash(/tmp/testvenv3/bin/python3 -c ' *)",
+      "Bash(rm -rf /tmp/testvenv3)",
+      "Bash(curl -s localhost:5000/api/format-xml -X POST -H \"Content-Type: application/json\" -d '{\"xml\":\"<dashboardMenu><menuItem>Custom Dashboards</menuItem></dashboardMenu>\"}')"
     ],
     "additionalDirectories": [
       "/tmp/testvenv",

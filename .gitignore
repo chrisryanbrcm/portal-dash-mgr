@@ -16,3 +16,7 @@ env/
 .DS_Store
 .vscode/
 .idea/
+
+# Custom
+CLAUDE.md
+DESIGN.md

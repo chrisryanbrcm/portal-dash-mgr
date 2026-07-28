@@ -59,7 +59,7 @@ def export_dashboard():
     if not host or not page_id:
         return jsonify({"error": "A valid Portal URL and Dashboard ID (pg=) are required."}), 400
 
-    target_url = f"{protocol}://{host}:{port}/pc/center/rest/dashboards/{page_id}"
+    target_url = f"{protocol}://{host}:{port}/pc/center/webservice/dashboards/{page_id}"
 
     headers = {"Accept": "application/xml"}
     auth = None
@@ -81,6 +81,12 @@ def export_dashboard():
         "target_url": target_url,
         "xml": _format_xml(response.text),
     })
+
+
+@app.route("/api/format-xml", methods=["POST"])
+def format_xml():
+    data = request.get_json(silent=True) or {}
+    return jsonify({"xml": _format_xml(data.get("xml", ""))})
 
 
 @app.route("/api/import", methods=["POST"])

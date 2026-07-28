@@ -94,22 +94,10 @@
         <pre id="export-xml" class="whitespace-pre-wrap font-mono text-xs bg-gray-50 border border-gray-300 rounded p-4 max-h-96 overflow-auto"></pre>
       </div>
 
-      <button id="export-save-btn" onclick="saveExportedXml()" disabled
+      <button id="export-save-btn" onclick="openExportSaveConfirm()" disabled
         class="bg-emerald-600 text-white text-sm font-medium px-4 py-2 rounded hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed">
         Save Dashboard to File
       </button>
-
-      <div class="bg-amber-50 border border-amber-300 text-amber-900 text-sm rounded p-4">
-        <p class="font-semibold mb-1">Before importing this file:</p>
-        <p class="mb-2">Update the menu items to identify where the dashboard should exist in the new NetOps Portal menu hierarchy:</p>
-        <ul class="list-disc list-inside space-y-1 mb-2">
-          <li><code>&lt;menuItem&gt;</code>: Defines which menu group the dashboard will attach to (e.g., <code>&lt;menuItem&gt;Custom Dashboards&lt;/menuItem&gt;</code>).</li>
-          <li><code>&lt;dashboardTitle&gt;</code>: Specifies the display name of the imported dashboard.</li>
-        </ul>
-        <p class="mb-2">Note: If a dashboard with the exact same <code>&lt;dashboardTitle&gt;</code> already exists on the target server, rename the text inside <code>&lt;dashboardTitle&gt;</code> in your XML body before importing to avoid name collision errors.</p>
-        <a href="https://techdocs.broadcom.com/us/en/ca-enterprise-software/it-operations-management/dx-netops/25-4/Performance-Monitoring-with-DX-Performance-Management/apis/performance-center-rest-web-services/dashboards-web-service.html"
-          target="_blank" class="underline">See dashboards web service documentation for more information.</a>
-      </div>
     </section>
 
     <section id="panel-import" class="tab-panel bg-white rounded-b-lg shadow p-6 hidden space-y-5">
@@ -250,6 +238,27 @@
     </div>
   </div>
 
+  <div id="export-save-confirm-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+    <div class="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
+      <h3 class="text-lg font-semibold mb-2">Before Using This File for Import</h3>
+      <p class="text-sm text-gray-600 mb-3">
+        Update the menu items to identify where this dashboard should exist in the new NetOps Portal menu hierarchy:
+      </p>
+      <ul class="list-disc list-inside text-sm text-gray-700 space-y-1 mb-3">
+        <li><code>&lt;dashboardMenu&gt;</code> (currently <span id="export-save-dashboard-menu" class="font-medium"></span>): the top-level menu group the dashboard will be filed under.</li>
+        <li><code>&lt;menuItem&gt;</code> (currently <span id="export-save-menu-item" class="font-medium"></span>): defines which menu group the dashboard will attach to.</li>
+        <li><code>&lt;dashboardTitle&gt;</code> (currently <span id="export-save-dashboard-title" class="font-medium"></span>): the display name of the imported dashboard.</li>
+      </ul>
+      <p class="text-sm text-gray-600 mb-4">
+        If a dashboard with this exact <code>&lt;dashboardTitle&gt;</code> already exists on the target server, rename it in the XML before importing to avoid a name collision error.
+      </p>
+      <div class="flex justify-end gap-3">
+        <button onclick="closeExportSaveConfirm()" class="px-4 py-2 text-sm rounded border border-gray-300 hover:bg-gray-50">Cancel</button>
+        <button onclick="confirmExportSave()" class="px-4 py-2 text-sm rounded bg-slate-800 text-white hover:bg-slate-700">Continue</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     function showTab(name) {
       const tabs = ['export', 'import'];
@@ -332,12 +341,35 @@
       if (!file) return;
 
       const reader = new FileReader();
-      reader.onload = () => {
-        const xmlText = reader.result;
-        document.getElementById('import-xml-preview').textContent = xmlText;
-        extractImportFields(xmlText);
+      reader.onload = async () => {
+        const rawXml = reader.result;
+        extractImportFields(rawXml);
+
+        const previewEl = document.getElementById('import-xml-preview');
+        try {
+          const res = await fetch('/api/format-xml', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ xml: rawXml }),
+          });
+          const data = await res.json();
+          previewEl.innerHTML = highlightXml(data.xml);
+        } catch (err) {
+          previewEl.textContent = rawXml;
+        }
       };
       reader.readAsText(file);
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function highlightXml(xml) {
+      return escapeHtml(xml)
+        .replace(/([\w:.-]+)(=)(&quot;[^&]*?&quot;|"[^"]*")/g, '<span class="text-emerald-700">$1</span>$2<span class="text-amber-700">$3</span>')
+        .replace(/(&lt;\/?)([\w:.-]+)/g, '$1<span class="text-sky-700 font-semibold">$2</span>')
+        .replace(/(&lt;|\/?&gt;)/g, '<span class="text-gray-400">$1</span>');
     }
 
     function extractImportFields(xmlText) {
@@ -472,7 +504,28 @@
       }
     }
 
-    function saveExportedXml() {
+    function getXmlTag(xmlText, tag) {
+      const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+      if (doc.querySelector('parsererror')) return '(not found)';
+      const el = doc.getElementsByTagName(tag)[0];
+      return el && el.textContent.trim() ? el.textContent.trim() : '(not found)';
+    }
+
+    function openExportSaveConfirm() {
+      const xml = document.getElementById('export-xml').textContent;
+      document.getElementById('export-save-dashboard-menu').textContent = getXmlTag(xml, 'dashboardMenu');
+      document.getElementById('export-save-menu-item').textContent = getXmlTag(xml, 'menuItem');
+      document.getElementById('export-save-dashboard-title').textContent = getXmlTag(xml, 'dashboardTitle');
+      document.getElementById('export-save-confirm-modal').classList.remove('hidden');
+    }
+
+    function closeExportSaveConfirm() {
+      document.getElementById('export-save-confirm-modal').classList.add('hidden');
+    }
+
+    function confirmExportSave() {
+      closeExportSaveConfirm();
+
       const xml = document.getElementById('export-xml').textContent;
       const pageId = document.getElementById('export-page-id').value.trim() || 'dashboard';
       const blob = new Blob([xml], { type: 'application/xml' });
