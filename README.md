@@ -2,8 +2,6 @@
 
 A lightweight web tool for exporting dashboards from one DX NetOps Portal server and importing them into another, without needing to hand-craft REST calls. It wraps the Portal's dashboard web service in a simple browser UI: paste a dashboard URL to export its XML, or upload an XML file to import it into a target server — with authentication, SSL, and menu-hierarchy checks built in.
 
-See [DESIGN.md](DESIGN.md) for the full product/UI specification this tool was built against.
-
 ## Features
 
 **Export Dashboard**
