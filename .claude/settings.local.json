@@ -21,7 +21,8 @@
       "Bash(/tmp/testvenv3/bin/pip install *)",
       "Bash(/tmp/testvenv3/bin/python3 -c ' *)",
       "Bash(rm -rf /tmp/testvenv3)",
-      "Bash(curl -s localhost:5000/api/format-xml -X POST -H \"Content-Type: application/json\" -d '{\"xml\":\"<dashboardMenu><menuItem>Custom Dashboards</menuItem></dashboardMenu>\"}')"
+      "Bash(curl -s localhost:5000/api/format-xml -X POST -H \"Content-Type: application/json\" -d '{\"xml\":\"<dashboardMenu><menuItem>Custom Dashboards</menuItem></dashboardMenu>\"}')",
+      "Bash(node -e ' *)"
     ],
     "additionalDirectories": [
       "/tmp/testvenv",

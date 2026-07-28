@@ -273,13 +273,16 @@
     }
 
     function autoFillPort(rawUrl, portSelectId, portCustomId) {
-      let port = null;
+      let parsedUrl;
       try {
-        port = new URL(rawUrl).port;
+        parsedUrl = new URL(rawUrl);
       } catch (err) {
         // Not a fully-qualified URL yet (e.g. still being typed) - skip port auto-fill.
+        return;
       }
-      if (!port) return;
+
+      // The URL object returns an empty port when it matches the protocol's default (443/80) or is omitted.
+      const port = parsedUrl.port || (parsedUrl.protocol === 'https:' ? '443' : '80');
 
       const select = document.getElementById(portSelectId);
       const custom = document.getElementById(portCustomId);
