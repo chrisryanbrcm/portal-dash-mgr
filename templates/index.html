@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NetOps Portal Dashboard Manager</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+  <header class="bg-slate-800 text-white px-6 py-4 shadow">
+    <h1 class="text-xl font-semibold">NetOps Portal Dashboard Manager</h1>
+  </header>
+
+  <main class="max-w-4xl mx-auto mt-6 px-4">
+
+    <div class="border-b border-gray-300 flex space-x-6">
+      <button id="tab-export" onclick="showTab('export')"
+        class="tab-btn px-4 py-2 font-medium text-slate-800 border-b-2 border-slate-800">
+        Export Dashboard
+      </button>
+      <button id="tab-import" onclick="showTab('import')"
+        class="tab-btn px-4 py-2 font-medium text-gray-500 border-b-2 border-transparent">
+        Import Dashboard
+      </button>
+    </div>
+
+    <section id="panel-export" class="tab-panel bg-white rounded-b-lg shadow p-6 space-y-5">
+      <h2 class="text-lg font-semibold">Export Dashboard</h2>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Portal URL</label>
+        <input id="export-url" type="text" placeholder="https://netops.example.com:8181/dashboard/content/index.html#/dashboard?pg=42"
+          oninput="onExportUrlChange()"
+          class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500">
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Port</label>
+          <select id="export-port-select" onchange="onExportPortSelectChange()"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm">
+            <option value="8181">8181</option>
+            <option value="443">443</option>
+            <option value="custom">Custom</option>
+          </select>
+          <input id="export-port-custom" type="text" placeholder="Port number"
+            class="hidden mt-2 w-full border border-gray-300 rounded px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Dashboard ID (pg=)</label>
+          <input id="export-page-id" type="text" placeholder="e.g. 42"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm">
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Authentication</label>
+        <select id="export-auth-type" onchange="onExportAuthTypeChange()"
+          class="w-full border border-gray-300 rounded px-3 py-2 text-sm">
+          <option value="none">None</option>
+          <option value="basic">Basic</option>
+          <option value="token">Token</option>
+        </select>
+
+        <div id="export-auth-basic" class="hidden grid grid-cols-2 gap-4 mt-2">
+          <input id="export-username" type="text" placeholder="Username"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm">
+          <input id="export-password" type="password" placeholder="Password"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm">
+        </div>
+
+        <div id="export-auth-token" class="hidden mt-2">
+          <input id="export-token" type="text" placeholder="Bearer token"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm">
+        </div>
+      </div>
+
+      <label class="flex items-center gap-2 text-sm text-gray-700">
+        <input id="export-ignore-ssl" type="checkbox" class="rounded border-gray-300">
+        Ignore SSL Verification
+      </label>
+
+      <div class="flex items-center gap-3">
+        <button onclick="exportDashboard()"
+          class="bg-slate-800 text-white text-sm font-medium px-4 py-2 rounded hover:bg-slate-700">
+          Export Dashboard
+        </button>
+        <span id="export-status" class="text-sm font-medium"></span>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Response (XML)</label>
+        <pre id="export-xml" class="whitespace-pre-wrap font-mono text-xs bg-gray-50 border border-gray-300 rounded p-4 max-h-96 overflow-auto"></pre>
+      </div>
+
+      <button id="export-save-btn" onclick="saveExportedXml()" disabled
+        class="bg-emerald-600 text-white text-sm font-medium px-4 py-2 rounded hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed">
+        Save Dashboard to File
+      </button>
+
+      <div class="bg-amber-50 border border-amber-300 text-amber-900 text-sm rounded p-4">
+        <p class="font-semibold mb-1">Before importing this file:</p>
+        <p class="mb-2">Update the menu items to identify where the dashboard should exist in the new NetOps Portal menu hierarchy:</p>
+        <ul class="list-disc list-inside space-y-1 mb-2">
+          <li><code>&lt;menuItem&gt;</code>: Defines which menu group the dashboard will attach to (e.g., <code>&lt;menuItem&gt;Custom Dashboards&lt;/menuItem&gt;</code>).</li>
+          <li><code>&lt;dashboardTitle&gt;</code>: Specifies the display name of the imported dashboard.</li>
+        </ul>
+        <p class="mb-2">Note: If a dashboard with the exact same <code>&lt;dashboardTitle&gt;</code> already exists on the target server, rename the text inside <code>&lt;dashboardTitle&gt;</code> in your XML body before importing to avoid name collision errors.</p>
+        <a href="https://techdocs.broadcom.com/us/en/ca-enterprise-software/it-operations-management/dx-netops/25-4/Performance-Monitoring-with-DX-Performance-Management/apis/performance-center-rest-web-services/dashboards-web-service.html"
+          target="_blank" class="underline">See dashboards web service documentation for more information.</a>
+      </div>
+    </section>
+
+    <section id="panel-import" class="tab-panel bg-white rounded-b-lg shadow p-6 hidden space-y-5">
+      <h2 class="text-lg font-semibold">Import Dashboard</h2>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Target Portal URL</label>
+        <input id="import-url" type="text" placeholder="https://netops.example.com:8181/"
+          oninput="autoFillPort(this.value, 'import-port-select', 'import-port-custom')"
+          class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Port</label>
+        <select id="import-port-select" onchange="onImportPortSelectChange()"
+          class="w-full border border-gray-300 rounded px-3 py-2 text-sm">
+          <option value="8181">8181</option>
+          <option value="443">443</option>
+          <option value="custom">Custom</option>
+        </select>
+        <input id="import-port-custom" type="text" placeholder="Port number"
+          class="hidden mt-2 w-full border border-gray-300 rounded px-3 py-2 text-sm">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Authentication</label>
+        <select id="import-auth-type" onchange="onImportAuthTypeChange()"
+          class="w-full border border-gray-300 rounded px-3 py-2 text-sm">
+          <option value="none">None</option>
+          <option value="basic">Basic</option>
+          <option value="token">Token</option>
+        </select>
+
+        <div id="import-auth-basic" class="hidden grid grid-cols-2 gap-4 mt-2">
+          <input id="import-username" type="text" placeholder="Username"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm">
+          <input id="import-password" type="password" placeholder="Password"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm">
+        </div>
+
+        <div id="import-auth-token" class="hidden mt-2">
+          <input id="import-token" type="text" placeholder="Bearer token"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm">
+        </div>
+      </div>
+
+      <label class="flex items-center gap-2 text-sm text-gray-700">
+        <input id="import-ignore-ssl" type="checkbox" class="rounded border-gray-300">
+        Ignore SSL Verification
+      </label>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Upload Dashboard XML</label>
+        <input id="import-file" type="file" accept=".xml,text/xml" onchange="onImportFileChange(event)"
+          class="w-full text-sm border border-gray-300 rounded px-3 py-2">
+      </div>
+
+      <div class="grid grid-cols-3 gap-4 text-sm">
+        <div class="bg-gray-50 border border-gray-200 rounded p-3">
+          <span class="block text-gray-500">Dashboard Menu</span>
+          <span id="import-menu" class="font-medium break-words">-</span>
+        </div>
+        <div class="bg-gray-50 border border-gray-200 rounded p-3">
+          <span class="block text-gray-500">Menu Item</span>
+          <span id="import-menu-item" class="font-medium break-words">-</span>
+        </div>
+        <div class="bg-gray-50 border border-gray-200 rounded p-3">
+          <span class="block text-gray-500">Dashboard Title</span>
+          <span id="import-dashboard-title" class="font-medium break-words">-</span>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">XML File Contents</label>
+        <pre id="import-xml-preview" class="whitespace-pre-wrap font-mono text-xs bg-gray-50 border border-gray-300 rounded p-4 max-h-96 overflow-auto"></pre>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button onclick="openImportConfirm()"
+          class="bg-slate-800 text-white text-sm font-medium px-4 py-2 rounded hover:bg-slate-700">
+          Import Dashboard
+        </button>
+        <span id="import-status" class="text-sm font-medium"></span>
+      </div>
+
+      <div class="border border-gray-300 rounded-lg">
+        <button onclick="toggleGuide()" type="button"
+          class="w-full flex justify-between items-center px-4 py-3 text-left font-medium text-slate-800">
+          <span>NetOps Portal Menu Setup Guide</span>
+          <span id="guide-chevron">+</span>
+        </button>
+        <div id="guide-content" class="hidden px-4 pb-4 text-sm text-gray-700 space-y-3 border-t border-gray-200 pt-3">
+          <div>
+            <p class="font-semibold">Step 1: Create the New Menu</p>
+            <ol class="list-decimal list-inside space-y-1 mt-1">
+              <li>Log in to NetOps Portal as a user with administrative or designer rights.</li>
+              <li>In the top navigation bar, go to Administration &gt; User Settings &gt; Menus.</li>
+              <li>On the Manage Menus page, click New.</li>
+              <li>In the Add Menu dialog:
+                <ul class="list-disc list-inside ml-4 mt-1 space-y-1">
+                  <li><span class="font-medium">Menu Name:</span> Enter a display title for your custom menu.</li>
+                  <li><span class="font-medium">Description:</span> Add an optional description.</li>
+                  <li><span class="font-medium">Add Dashboards:</span> Select dashboards from the Available Dashboards list and click the Select item arrow to move them into the Selected Dashboards list.</li>
+                </ul>
+              </li>
+              <li>Click Save.</li>
+            </ol>
+          </div>
+          <div>
+            <p class="font-semibold">Step 2: Associate the Menu with User Roles (Required)</p>
+            <p class="italic mt-1">Important: Creating a menu does not automatically make it visible. You must assign the new menu to a User Role before users with that role can see it in their top navigation bar.</p>
+            <ol class="list-decimal list-inside space-y-1 mt-1">
+              <li>Go to Administration &gt; User Settings &gt; Roles.</li>
+              <li>Select the target role (e.g., Network Administrator or a custom role) and click Edit.</li>
+              <li>In the Menus tab/section, locate your newly created menu in the available options.</li>
+              <li>Move the new menu to the Selected Menus column.</li>
+              <li>Click Save.</li>
+            </ol>
+            <p class="mt-1">Once saved, users belonging to that role will see the new menu and its assigned dashboards listed under the main Performance dropdown tab in the NetOps Portal header.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <div id="import-confirm-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+    <div class="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
+      <h3 class="text-lg font-semibold mb-2">Confirm Menu Hierarchy</h3>
+      <p class="text-sm text-gray-600 mb-4">
+        Before importing, confirm that this XML properly reflects the target menu hierarchy on this Portal server
+        (<code>&lt;dashboardMenu&gt;</code>, <code>&lt;menuItem&gt;</code>, and <code>&lt;dashboardTitle&gt;</code>).
+      </p>
+      <div class="flex justify-end gap-3">
+        <button onclick="closeImportConfirm()" class="px-4 py-2 text-sm rounded border border-gray-300 hover:bg-gray-50">Cancel</button>
+        <button onclick="confirmImport()" class="px-4 py-2 text-sm rounded bg-slate-800 text-white hover:bg-slate-700">Continue</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function showTab(name) {
+      const tabs = ['export', 'import'];
+      tabs.forEach(t => {
+        document.getElementById(`panel-${t}`).classList.toggle('hidden', t !== name);
+        const btn = document.getElementById(`tab-${t}`);
+        btn.classList.toggle('text-slate-800', t === name);
+        btn.classList.toggle('border-slate-800', t === name);
+        btn.classList.toggle('text-gray-500', t !== name);
+        btn.classList.toggle('border-transparent', t !== name);
+      });
+    }
+
+    function autoFillPort(rawUrl, portSelectId, portCustomId) {
+      let port = null;
+      try {
+        port = new URL(rawUrl).port;
+      } catch (err) {
+        // Not a fully-qualified URL yet (e.g. still being typed) - skip port auto-fill.
+      }
+      if (!port) return;
+
+      const select = document.getElementById(portSelectId);
+      const custom = document.getElementById(portCustomId);
+      const known = Array.from(select.options).some(o => o.value === port);
+      select.value = known ? port : 'custom';
+      custom.classList.toggle('hidden', known);
+      if (!known) custom.value = port;
+    }
+
+    function getPortValue(portSelectId, portCustomId) {
+      const select = document.getElementById(portSelectId);
+      return select.value === 'custom' ? document.getElementById(portCustomId).value : select.value;
+    }
+
+    function onExportUrlChange() {
+      const raw = document.getElementById('export-url').value.trim();
+      if (!raw) return;
+
+      const pgMatch = raw.match(/pg=([^&#]+)/);
+      if (pgMatch) {
+        document.getElementById('export-page-id').value = pgMatch[1];
+      }
+
+      autoFillPort(raw, 'export-port-select', 'export-port-custom');
+    }
+
+    function onExportPortSelectChange() {
+      const isCustom = document.getElementById('export-port-select').value === 'custom';
+      document.getElementById('export-port-custom').classList.toggle('hidden', !isCustom);
+    }
+
+    function onExportAuthTypeChange() {
+      const authType = document.getElementById('export-auth-type').value;
+      document.getElementById('export-auth-basic').classList.toggle('hidden', authType !== 'basic');
+      document.getElementById('export-auth-token').classList.toggle('hidden', authType !== 'token');
+    }
+
+    function getExportPort() {
+      return getPortValue('export-port-select', 'export-port-custom');
+    }
+
+    function onImportPortSelectChange() {
+      const isCustom = document.getElementById('import-port-select').value === 'custom';
+      document.getElementById('import-port-custom').classList.toggle('hidden', !isCustom);
+    }
+
+    function onImportAuthTypeChange() {
+      const authType = document.getElementById('import-auth-type').value;
+      document.getElementById('import-auth-basic').classList.toggle('hidden', authType !== 'basic');
+      document.getElementById('import-auth-token').classList.toggle('hidden', authType !== 'token');
+    }
+
+    function getImportPort() {
+      return getPortValue('import-port-select', 'import-port-custom');
+    }
+
+    function onImportFileChange(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const xmlText = reader.result;
+        document.getElementById('import-xml-preview').textContent = xmlText;
+        extractImportFields(xmlText);
+      };
+      reader.readAsText(file);
+    }
+
+    function extractImportFields(xmlText) {
+      const menuEl = document.getElementById('import-menu');
+      const menuItemEl = document.getElementById('import-menu-item');
+      const titleEl = document.getElementById('import-dashboard-title');
+
+      const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+      if (doc.querySelector('parsererror')) {
+        menuEl.textContent = menuItemEl.textContent = titleEl.textContent = 'Unable to parse XML';
+        return;
+      }
+
+      const getTag = (tag) => {
+        const el = doc.getElementsByTagName(tag)[0];
+        return el && el.textContent.trim() ? el.textContent.trim() : '(not found)';
+      };
+
+      menuEl.textContent = getTag('dashboardMenu');
+      menuItemEl.textContent = getTag('menuItem');
+      titleEl.textContent = getTag('dashboardTitle');
+    }
+
+    function openImportConfirm() {
+      const statusEl = document.getElementById('import-status');
+      const url = document.getElementById('import-url').value.trim();
+      const xml = document.getElementById('import-xml-preview').textContent.trim();
+
+      if (!url || !xml) {
+        statusEl.textContent = 'A target URL and an uploaded XML file are required.';
+        statusEl.className = 'text-sm font-medium text-red-600';
+        return;
+      }
+
+      document.getElementById('import-confirm-modal').classList.remove('hidden');
+    }
+
+    function closeImportConfirm() {
+      document.getElementById('import-confirm-modal').classList.add('hidden');
+    }
+
+    async function confirmImport() {
+      closeImportConfirm();
+
+      const statusEl = document.getElementById('import-status');
+      statusEl.textContent = 'Importing...';
+      statusEl.className = 'text-sm font-medium text-gray-500';
+
+      const payload = {
+        url: document.getElementById('import-url').value.trim(),
+        port: getImportPort(),
+        auth_type: document.getElementById('import-auth-type').value,
+        username: document.getElementById('import-username').value,
+        password: document.getElementById('import-password').value,
+        token: document.getElementById('import-token').value,
+        ignore_ssl: document.getElementById('import-ignore-ssl').checked,
+        xml: document.getElementById('import-xml-preview').textContent,
+      };
+
+      try {
+        const res = await fetch('/api/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+
+        if (data.error) {
+          statusEl.textContent = `Error: ${data.error}`;
+          statusEl.className = 'text-sm font-medium text-red-600';
+          return;
+        }
+
+        statusEl.textContent = `Status: ${data.status_code} ${data.reason || ''}`.trim();
+        statusEl.className = `text-sm font-medium ${data.status_code >= 200 && data.status_code < 300 ? 'text-emerald-600' : 'text-red-600'}`;
+      } catch (err) {
+        statusEl.textContent = `Error: ${err.message}`;
+        statusEl.className = 'text-sm font-medium text-red-600';
+      }
+    }
+
+    function toggleGuide() {
+      const content = document.getElementById('guide-content');
+      const chevron = document.getElementById('guide-chevron');
+      const isHidden = content.classList.toggle('hidden');
+      chevron.textContent = isHidden ? '+' : '-';
+    }
+
+    async function exportDashboard() {
+      const statusEl = document.getElementById('export-status');
+      const xmlEl = document.getElementById('export-xml');
+      const saveBtn = document.getElementById('export-save-btn');
+
+      statusEl.textContent = 'Exporting...';
+      statusEl.className = 'text-sm font-medium text-gray-500';
+      saveBtn.disabled = true;
+      xmlEl.textContent = '';
+
+      const payload = {
+        url: document.getElementById('export-url').value.trim(),
+        port: getExportPort(),
+        page_id: document.getElementById('export-page-id').value.trim(),
+        auth_type: document.getElementById('export-auth-type').value,
+        username: document.getElementById('export-username').value,
+        password: document.getElementById('export-password').value,
+        token: document.getElementById('export-token').value,
+        ignore_ssl: document.getElementById('export-ignore-ssl').checked,
+      };
+
+      try {
+        const res = await fetch('/api/export', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+
+        if (data.error) {
+          statusEl.textContent = `Error: ${data.error}`;
+          statusEl.className = 'text-sm font-medium text-red-600';
+          xmlEl.textContent = '';
+          return;
+        }
+
+        statusEl.textContent = `Status: ${data.status_code}`;
+        statusEl.className = `text-sm font-medium ${data.status_code >= 200 && data.status_code < 300 ? 'text-emerald-600' : 'text-red-600'}`;
+        xmlEl.textContent = data.xml;
+        saveBtn.disabled = false;
+      } catch (err) {
+        statusEl.textContent = `Error: ${err.message}`;
+        statusEl.className = 'text-sm font-medium text-red-600';
+      }
+    }
+
+    function saveExportedXml() {
+      const xml = document.getElementById('export-xml').textContent;
+      const pageId = document.getElementById('export-page-id').value.trim() || 'dashboard';
+      const blob = new Blob([xml], { type: 'application/xml' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `dashboard_${pageId}.xml`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    }
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ' *)",
+      "Bash(docker compose *)",
+      "Bash(curl -s localhost:5000/health)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" localhost:5000/)",
+      "Bash(python3 -m py_compile app.py)",
+      "Bash(python3 -m venv /tmp/testvenv)",
+      "Bash(/tmp/testvenv/bin/pip install *)",
+      "Bash(/tmp/testvenv/bin/python3 -c ' *)",
+      "Bash(curl -s -o /dev/null -w \"index: %{http_code}\\\\n\" localhost:5000/)",
+      "Bash(curl -s localhost:5000/api/export -X POST -H \"Content-Type: application/json\" -d '{\"url\":\"https://example.com\",\"auth_type\":\"none\"}')",
+      "Bash(python3 -m py_compile /projects/portal-dash-mgr/app.py)",
+      "Bash(python3 -m venv /tmp/testvenv2)",
+      "Bash(/tmp/testvenv2/bin/pip install *)",
+      "Bash(rm -rf /tmp/testvenv2 *)",
+      "Bash(curl -s localhost:5000/)",
+      "Bash(curl -s localhost:5000/api/import -X POST -H \"Content-Type: application/json\" -d '{}')"
+    ],
+    "additionalDirectories": [
+      "/tmp/testvenv",
+      "/tmp/testvenv2"
+    ]
+  }
+}
