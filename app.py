@@ -47,11 +47,16 @@ def _build_auth(data):
     return headers, auth
 
 
+_XML_PARSER = etree.XMLParser(strip_cdata=False)
+
+
 def _format_xml(raw_text):
     """Pretty-print XML for display; fall back to raw text (e.g. error pages) if it doesn't parse."""
     try:
-        parsed_xml = etree.fromstring(raw_text.encode("utf-8"))
-        return etree.tostring(parsed_xml, pretty_print=True, encoding="unicode")
+        parsed_xml = etree.fromstring(raw_text.encode("utf-8"), parser=_XML_PARSER)
+        has_declaration = raw_text.lstrip().startswith("<?xml")
+        pretty = etree.tostring(parsed_xml, pretty_print=True, xml_declaration=has_declaration, encoding="UTF-8")
+        return pretty.decode("utf-8")
     except etree.XMLSyntaxError:
         return raw_text
 
@@ -130,6 +135,7 @@ def import_dashboard():
         "status_code": response.status_code,
         "reason": response.reason,
         "target_url": target_url,
+        "response_body": response.text,
     })
 
 

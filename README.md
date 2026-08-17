@@ -2,6 +2,8 @@
 
 A lightweight web tool for exporting dashboards from one DX NetOps Portal server and importing them into another, without needing to hand-craft REST calls. It wraps the Portal's dashboard web service in a simple browser UI: paste a dashboard URL to export its XML, or upload an XML file to import it into a target server — with authentication, SSL, and menu-hierarchy checks built in.
 
+Copying a dashboard between NetOps Portal servers (e.g. dev to prod, or between two independently-managed Portal instances) normally means hand-crafting authenticated `curl`/Postman calls against the dashboard web service, then manually tracking down and editing the XML's menu-placement and title fields to avoid collisions on the target server. This tool exists so anyone with Portal admin/designer rights — not just someone comfortable scripting REST calls — can do that migration from a browser: export, review, edit the pieces that need to change per-environment, and import, with the collision-prone fields called out at every step.
+
 ## Features
 
 **Export Dashboard**
@@ -11,10 +13,13 @@ A lightweight web tool for exporting dashboards from one DX NetOps Portal server
 - Optional "Ignore SSL Verification" for self-signed Portal certificates
 - Displays the HTTP status code and the pretty-printed XML response
 - "Save Dashboard to File" downloads the XML — a confirmation modal shows the detected `<menuItem>` and `<dashboardTitle>` values and reminds you to update them before importing elsewhere, to avoid menu placement or title-collision errors
+- "Transfer to Destination Server" skips the save/re-upload round trip: it hands the exported XML straight to the Import tab, pre-fills its editable metadata fields, and switches you there so you can point it at the target server immediately
 
 **Import Dashboard**
 - Same URL/port/auth/SSL controls as Export, targeting the destination server
-- Upload a dashboard XML file; its `<dashboardMenu>`, `<menuItem>`, and `<dashboardTitle>` values are extracted and shown, with a pretty-printed, syntax-highlighted preview of the full file
+- Upload a dashboard XML file (or receive one via "Transfer to Destination Server"); its `<dashboardMenu>`, `<menuItem>`, and `<dashboardTitle>` values are extracted into editable fields above a pretty-printed, syntax-highlighted preview of the full file
+- Editing any of those three fields updates the underlying XML in real time, reflected immediately in the preview — no need to edit the file externally and re-upload it
+- `<dashboardTitle>` is pre-filled with " - Copy" appended on load, to proactively avoid a title collision on the target server; fully editable if you'd rather set your own name
 - A confirmation modal (Continue/Cancel) requires an explicit acknowledgment that the menu hierarchy is correct before the import POST is sent
 - Displays the resulting HTTP status code (e.g. `200 OK`, `404 Not Found`)
 - Built-in, expandable "NetOps Portal Menu Setup Guide" covering how to create and expose a new menu for imported dashboards

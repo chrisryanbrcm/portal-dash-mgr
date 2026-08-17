@@ -94,10 +94,16 @@
         <pre id="export-xml" class="whitespace-pre-wrap font-mono text-xs bg-gray-50 border border-gray-300 rounded p-4 max-h-96 overflow-auto"></pre>
       </div>
 
-      <button id="export-save-btn" onclick="openExportSaveConfirm()" disabled
-        class="bg-emerald-600 text-white text-sm font-medium px-4 py-2 rounded hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed">
-        Save Dashboard to File
-      </button>
+      <div class="flex items-center gap-3">
+        <button id="export-save-btn" onclick="openExportSaveConfirm()" disabled
+          class="bg-emerald-600 text-white text-sm font-medium px-4 py-2 rounded hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed">
+          Save Dashboard to File
+        </button>
+        <button id="export-transfer-btn" onclick="transferToImport()" disabled
+          class="bg-slate-800 text-white text-sm font-medium px-4 py-2 rounded hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed">
+          Transfer to Destination Server
+        </button>
+      </div>
     </section>
 
     <section id="panel-import" class="tab-panel bg-white rounded-b-lg shadow p-6 hidden space-y-5">
@@ -155,18 +161,21 @@
           class="w-full text-sm border border-gray-300 rounded px-3 py-2">
       </div>
 
-      <div class="grid grid-cols-3 gap-4 text-sm">
-        <div class="bg-gray-50 border border-gray-200 rounded p-3">
-          <span class="block text-gray-500">Dashboard Menu</span>
-          <span id="import-menu" class="font-medium break-words">-</span>
+      <div class="grid grid-cols-3 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Dashboard Menu</label>
+          <input id="import-menu-input" type="text" oninput="onImportMetadataInput()"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500">
         </div>
-        <div class="bg-gray-50 border border-gray-200 rounded p-3">
-          <span class="block text-gray-500">Menu Item</span>
-          <span id="import-menu-item" class="font-medium break-words">-</span>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Menu Item</label>
+          <input id="import-menu-item-input" type="text" oninput="onImportMetadataInput()"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500">
         </div>
-        <div class="bg-gray-50 border border-gray-200 rounded p-3">
-          <span class="block text-gray-500">Dashboard Title</span>
-          <span id="import-dashboard-title" class="font-medium break-words">-</span>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Dashboard Title</label>
+          <input id="import-dashboard-title-input" type="text" oninput="onImportMetadataInput()"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500">
         </div>
       </div>
 
@@ -182,6 +191,8 @@
         </button>
         <span id="import-status" class="text-sm font-medium"></span>
       </div>
+
+      <pre id="import-response-body" class="hidden whitespace-pre-wrap font-mono text-xs bg-red-50 border border-red-200 text-red-800 rounded p-4 max-h-64 overflow-auto"></pre>
 
       <div class="border border-gray-300 rounded-lg">
         <button onclick="toggleGuide()" type="button"
@@ -260,6 +271,8 @@
   </div>
 
   <script>
+    let importXmlPayload = '';
+
     function showTab(name) {
       const tabs = ['export', 'import'];
       tabs.forEach(t => {
@@ -346,9 +359,7 @@
       const reader = new FileReader();
       reader.onload = async () => {
         const rawXml = reader.result;
-        extractImportFields(rawXml);
-
-        const previewEl = document.getElementById('import-xml-preview');
+        let formatted = rawXml;
         try {
           const res = await fetch('/api/format-xml', {
             method: 'POST',
@@ -356,10 +367,11 @@
             body: JSON.stringify({ xml: rawXml }),
           });
           const data = await res.json();
-          previewEl.innerHTML = highlightXml(data.xml);
+          formatted = data.xml;
         } catch (err) {
-          previewEl.textContent = rawXml;
+          // Keep the raw text if formatting fails.
         }
+        loadImportXmlPayload(formatted);
       };
       reader.readAsText(file);
     }
@@ -375,33 +387,76 @@
         .replace(/(&lt;|\/?&gt;)/g, '<span class="text-gray-400">$1</span>');
     }
 
-    function extractImportFields(xmlText) {
-      const menuEl = document.getElementById('import-menu');
-      const menuItemEl = document.getElementById('import-menu-item');
-      const titleEl = document.getElementById('import-dashboard-title');
+    // Replaces only the target tag's text content in place, leaving the rest of the
+    // XML text byte-for-byte untouched (no DOMParser/XMLSerializer round trip, which
+    // can silently drop the XML declaration or reformat tags the Portal server rejects).
+    function updateXmlTag(xmlText, tagName, newValue) {
+      const pattern = new RegExp(`(<${tagName}(?:\\s[^>]*)?>)([\\s\\S]*?)(</${tagName}>)`);
+      if (!pattern.test(xmlText)) return xmlText;
+      return xmlText.replace(pattern, (match, open, oldValue, close) => open + escapeHtml(newValue) + close);
+    }
 
-      const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
-      if (doc.querySelector('parsererror')) {
-        menuEl.textContent = menuItemEl.textContent = titleEl.textContent = 'Unable to parse XML';
-        return;
-      }
+    function renderImportPreview() {
+      document.getElementById('import-xml-preview').innerHTML = highlightXml(importXmlPayload);
+    }
 
-      const getTag = (tag) => {
-        const el = doc.getElementsByTagName(tag)[0];
-        return el && el.textContent.trim() ? el.textContent.trim() : '(not found)';
-      };
+    // The XML as loaded (after the dashboardTitle " - Copy" rename), before any live field edits.
+    let importXmlBase = '';
 
-      menuEl.textContent = getTag('dashboardMenu');
-      menuItemEl.textContent = getTag('menuItem');
-      titleEl.textContent = getTag('dashboardTitle');
+    // Loads a new XML payload into the Import tab (from a file upload or from
+    // the Export tab's transfer bridge) and appends " - Copy" to the title to
+    // proactively avoid a NetOps dashboardTitle collision on the target server.
+    function loadImportXmlPayload(xmlText) {
+      const menu = getXmlTag(xmlText, 'dashboardMenu');
+      const menuItem = getXmlTag(xmlText, 'menuItem');
+      const title = getXmlTag(xmlText, 'dashboardTitle');
+      const titleWithCopy = title === '(not found)' ? title : `${title} - Copy`;
+
+      importXmlBase = title === '(not found)' ? xmlText : updateXmlTag(xmlText, 'dashboardTitle', titleWithCopy);
+      importXmlPayload = importXmlBase;
+
+      document.getElementById('import-menu-input').value = menu === '(not found)' ? '' : menu;
+      document.getElementById('import-menu-item-input').value = menuItem === '(not found)' ? '' : menuItem;
+      document.getElementById('import-dashboard-title-input').value = title === '(not found)' ? '' : titleWithCopy;
+
+      renderImportPreview();
+    }
+
+    // Rebuilds importXmlPayload from importXmlBase plus the fields' current values. This is the
+    // only place that touches the (potentially large) XML string, so it's called on a debounce
+    // while typing and, unconditionally, right before an import is sent.
+    function syncImportXmlPayload() {
+      importXmlPayload = updateXmlTag(
+        updateXmlTag(
+          updateXmlTag(importXmlBase, 'dashboardMenu', document.getElementById('import-menu-input').value),
+          'menuItem', document.getElementById('import-menu-item-input').value
+        ),
+        'dashboardTitle', document.getElementById('import-dashboard-title-input').value
+      );
+    }
+
+    let importPreviewDebounceTimer = null;
+
+    // Keystrokes only need to update the input's own displayed value, which the browser already
+    // does for free -- rebuilding and re-highlighting the full XML string on every character is
+    // what was slow. Defer that work until typing pauses.
+    function onImportMetadataInput() {
+      clearTimeout(importPreviewDebounceTimer);
+      importPreviewDebounceTimer = setTimeout(() => {
+        syncImportXmlPayload();
+        renderImportPreview();
+      }, 500);
     }
 
     function openImportConfirm() {
+      clearTimeout(importPreviewDebounceTimer);
+      syncImportXmlPayload();
+      renderImportPreview();
+
       const statusEl = document.getElementById('import-status');
       const url = document.getElementById('import-url').value.trim();
-      const xml = document.getElementById('import-xml-preview').textContent.trim();
 
-      if (!url || !xml) {
+      if (!url || !importXmlPayload.trim()) {
         statusEl.textContent = 'A target URL and an uploaded XML file are required.';
         statusEl.className = 'text-sm font-medium text-red-600';
         return;
@@ -418,8 +473,11 @@
       closeImportConfirm();
 
       const statusEl = document.getElementById('import-status');
+      const bodyEl = document.getElementById('import-response-body');
       statusEl.textContent = 'Importing...';
       statusEl.className = 'text-sm font-medium text-gray-500';
+      bodyEl.classList.add('hidden');
+      bodyEl.textContent = '';
 
       const payload = {
         url: document.getElementById('import-url').value.trim(),
@@ -429,7 +487,7 @@
         password: document.getElementById('import-password').value,
         token: document.getElementById('import-token').value,
         ignore_ssl: document.getElementById('import-ignore-ssl').checked,
-        xml: document.getElementById('import-xml-preview').textContent,
+        xml: importXmlPayload,
       };
 
       try {
@@ -446,8 +504,14 @@
           return;
         }
 
+        const isSuccess = data.status_code >= 200 && data.status_code < 300;
         statusEl.textContent = `Status: ${data.status_code} ${data.reason || ''}`.trim();
-        statusEl.className = `text-sm font-medium ${data.status_code >= 200 && data.status_code < 300 ? 'text-emerald-600' : 'text-red-600'}`;
+        statusEl.className = `text-sm font-medium ${isSuccess ? 'text-emerald-600' : 'text-red-600'}`;
+
+        if (!isSuccess && data.response_body) {
+          bodyEl.textContent = data.response_body;
+          bodyEl.classList.remove('hidden');
+        }
       } catch (err) {
         statusEl.textContent = `Error: ${err.message}`;
         statusEl.className = 'text-sm font-medium text-red-600';
@@ -465,10 +529,12 @@
       const statusEl = document.getElementById('export-status');
       const xmlEl = document.getElementById('export-xml');
       const saveBtn = document.getElementById('export-save-btn');
+      const transferBtn = document.getElementById('export-transfer-btn');
 
       statusEl.textContent = 'Exporting...';
       statusEl.className = 'text-sm font-medium text-gray-500';
       saveBtn.disabled = true;
+      transferBtn.disabled = true;
       xmlEl.textContent = '';
 
       const payload = {
@@ -501,10 +567,19 @@
         statusEl.className = `text-sm font-medium ${data.status_code >= 200 && data.status_code < 300 ? 'text-emerald-600' : 'text-red-600'}`;
         xmlEl.textContent = data.xml;
         saveBtn.disabled = false;
+        transferBtn.disabled = false;
       } catch (err) {
         statusEl.textContent = `Error: ${err.message}`;
         statusEl.className = 'text-sm font-medium text-red-600';
       }
+    }
+
+    function transferToImport() {
+      const xml = document.getElementById('export-xml').textContent;
+      if (!xml.trim()) return;
+
+      loadImportXmlPayload(xml);
+      showTab('import');
     }
 
     function getXmlTag(xmlText, tag) {
