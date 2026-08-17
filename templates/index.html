@@ -185,7 +185,7 @@
       </div>
 
       <div class="flex items-center gap-3">
-        <button onclick="openImportConfirm()"
+        <button onclick="importDashboard()"
           class="bg-slate-800 text-white text-sm font-medium px-4 py-2 rounded hover:bg-slate-700">
           Import Dashboard
         </button>
@@ -234,20 +234,6 @@
     </section>
 
   </main>
-
-  <div id="import-confirm-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-    <div class="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
-      <h3 class="text-lg font-semibold mb-2">Confirm Menu Hierarchy</h3>
-      <p class="text-sm text-gray-600 mb-4">
-        Before importing, confirm that this XML properly reflects the target menu hierarchy on this Portal server
-        (<code>&lt;dashboardMenu&gt;</code>, <code>&lt;menuItem&gt;</code>, and <code>&lt;dashboardTitle&gt;</code>).
-      </p>
-      <div class="flex justify-end gap-3">
-        <button onclick="closeImportConfirm()" class="px-4 py-2 text-sm rounded border border-gray-300 hover:bg-gray-50">Cancel</button>
-        <button onclick="confirmImport()" class="px-4 py-2 text-sm rounded bg-slate-800 text-white hover:bg-slate-700">Continue</button>
-      </div>
-    </div>
-  </div>
 
   <div id="export-save-confirm-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
     <div class="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
@@ -448,12 +434,13 @@
       }, 500);
     }
 
-    function openImportConfirm() {
+    async function importDashboard() {
       clearTimeout(importPreviewDebounceTimer);
       syncImportXmlPayload();
       renderImportPreview();
 
       const statusEl = document.getElementById('import-status');
+      const bodyEl = document.getElementById('import-response-body');
       const url = document.getElementById('import-url').value.trim();
 
       if (!url || !importXmlPayload.trim()) {
@@ -462,18 +449,6 @@
         return;
       }
 
-      document.getElementById('import-confirm-modal').classList.remove('hidden');
-    }
-
-    function closeImportConfirm() {
-      document.getElementById('import-confirm-modal').classList.add('hidden');
-    }
-
-    async function confirmImport() {
-      closeImportConfirm();
-
-      const statusEl = document.getElementById('import-status');
-      const bodyEl = document.getElementById('import-response-body');
       statusEl.textContent = 'Importing...';
       statusEl.className = 'text-sm font-medium text-gray-500';
       bodyEl.classList.add('hidden');
