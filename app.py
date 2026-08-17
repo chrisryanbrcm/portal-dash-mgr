@@ -19,7 +19,10 @@ def parse_netops_url(url):
     """Extract protocol, host, port, and dashboard page ID (pg=) from a NetOps Portal URL."""
     parsed = urlparse(url)
     protocol = parsed.scheme or "https"
-    port = parsed.port or (443 if protocol == "https" else 80)
+    try:
+        port = parsed.port or (443 if protocol == "https" else 80)
+    except ValueError:
+        return {"protocol": protocol, "host": None, "port": None, "page_id": None}
 
     page_id_match = PAGE_ID_PATTERN.search(url)
     page_id = page_id_match.group(1) if page_id_match else None
@@ -30,6 +33,18 @@ def parse_netops_url(url):
         "port": port,
         "page_id": page_id,
     }
+
+
+def _build_auth(data):
+    """Build (headers, auth) for a request based on the client-supplied auth_type."""
+    headers = {}
+    auth = None
+    auth_type = data.get("auth_type", "none")
+    if auth_type == "basic":
+        auth = (data.get("username", ""), data.get("password", ""))
+    elif auth_type == "token":
+        headers["Authorization"] = f"Bearer {data.get('token', '')}"
+    return headers, auth
 
 
 def _format_xml(raw_text):
@@ -50,7 +65,7 @@ def health():
 def export_dashboard():
     data = request.get_json(silent=True) or {}
 
-    parsed = parse_netops_url(data.get("url", ""))
+    parsed = parse_netops_url(data.get("url") or "")
     host = parsed["host"]
     protocol = parsed["protocol"]
     port = data.get("port") or parsed["port"]
@@ -61,13 +76,8 @@ def export_dashboard():
 
     target_url = f"{protocol}://{host}:{port}/pc/center/webservice/dashboards/{page_id}"
 
-    headers = {"Accept": "application/xml"}
-    auth = None
-    auth_type = data.get("auth_type", "none")
-    if auth_type == "basic":
-        auth = (data.get("username", ""), data.get("password", ""))
-    elif auth_type == "token":
-        headers["Authorization"] = f"Bearer {data.get('token', '')}"
+    headers, auth = _build_auth(data)
+    headers["Accept"] = "application/xml"
 
     verify_ssl = not data.get("ignore_ssl", False)
 
@@ -86,31 +96,26 @@ def export_dashboard():
 @app.route("/api/format-xml", methods=["POST"])
 def format_xml():
     data = request.get_json(silent=True) or {}
-    return jsonify({"xml": _format_xml(data.get("xml", ""))})
+    return jsonify({"xml": _format_xml(data.get("xml") or "")})
 
 
 @app.route("/api/import", methods=["POST"])
 def import_dashboard():
     data = request.get_json(silent=True) or {}
 
-    parsed = parse_netops_url(data.get("url", ""))
+    parsed = parse_netops_url(data.get("url") or "")
     host = parsed["host"]
     protocol = parsed["protocol"]
     port = data.get("port") or parsed["port"]
-    xml = data.get("xml", "")
+    xml = data.get("xml") or ""
 
     if not host or not xml:
         return jsonify({"error": "A valid target URL and an XML file are required."}), 400
 
     target_url = f"{protocol}://{host}:{port}/pc/center/webservice/dashboards/import"
 
-    headers = {"Content-Type": "application/xml"}
-    auth = None
-    auth_type = data.get("auth_type", "none")
-    if auth_type == "basic":
-        auth = (data.get("username", ""), data.get("password", ""))
-    elif auth_type == "token":
-        headers["Authorization"] = f"Bearer {data.get('token', '')}"
+    headers, auth = _build_auth(data)
+    headers["Content-Type"] = "application/xml"
 
     verify_ssl = not data.get("ignore_ssl", False)
 
@@ -134,4 +139,4 @@ def index():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=False)
