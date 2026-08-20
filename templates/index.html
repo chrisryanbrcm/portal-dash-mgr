@@ -103,6 +103,14 @@
           class="bg-slate-800 text-white text-sm font-medium px-4 py-2 rounded hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed">
           Transfer to Destination Server
         </button>
+        <button onclick="resetExportForm()"
+          class="text-sm font-medium px-4 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50">
+          Reset
+        </button>
+        <label class="flex items-center gap-2 text-sm text-gray-700">
+          <input id="export-keep-auth" type="checkbox" class="rounded border-gray-300">
+          Keep authentication
+        </label>
       </div>
     </section>
 
@@ -189,6 +197,14 @@
           class="bg-slate-800 text-white text-sm font-medium px-4 py-2 rounded hover:bg-slate-700">
           Import Dashboard
         </button>
+        <button onclick="resetImportForm()"
+          class="text-sm font-medium px-4 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50">
+          Reset
+        </button>
+        <label class="flex items-center gap-2 text-sm text-gray-700">
+          <input id="import-keep-auth" type="checkbox" class="rounded border-gray-300">
+          Keep authentication
+        </label>
         <span id="import-status" class="text-sm font-medium"></span>
       </div>
 
@@ -580,6 +596,59 @@
       link.download = `dashboard_${pageId}.xml`;
       link.click();
       URL.revokeObjectURL(link.href);
+    }
+
+    function resetExportForm() {
+      document.getElementById('export-url').value = '';
+      document.getElementById('export-port-select').value = '8181';
+      document.getElementById('export-port-custom').value = '';
+      document.getElementById('export-port-custom').classList.add('hidden');
+      document.getElementById('export-page-id').value = '';
+
+      if (!document.getElementById('export-keep-auth').checked) {
+        document.getElementById('export-auth-type').value = 'none';
+        document.getElementById('export-username').value = '';
+        document.getElementById('export-password').value = '';
+        document.getElementById('export-token').value = '';
+        document.getElementById('export-auth-basic').classList.add('hidden');
+        document.getElementById('export-auth-token').classList.add('hidden');
+      }
+
+      document.getElementById('export-ignore-ssl').checked = false;
+      document.getElementById('export-status').textContent = '';
+      document.getElementById('export-status').className = 'text-sm font-medium';
+      document.getElementById('export-xml').textContent = '';
+      document.getElementById('export-save-btn').disabled = true;
+      document.getElementById('export-transfer-btn').disabled = true;
+    }
+
+    function resetImportForm() {
+      document.getElementById('import-url').value = '';
+      document.getElementById('import-port-select').value = '8181';
+      document.getElementById('import-port-custom').value = '';
+      document.getElementById('import-port-custom').classList.add('hidden');
+
+      if (!document.getElementById('import-keep-auth').checked) {
+        document.getElementById('import-auth-type').value = 'none';
+        document.getElementById('import-username').value = '';
+        document.getElementById('import-password').value = '';
+        document.getElementById('import-token').value = '';
+        document.getElementById('import-auth-basic').classList.add('hidden');
+        document.getElementById('import-auth-token').classList.add('hidden');
+      }
+
+      document.getElementById('import-ignore-ssl').checked = false;
+      document.getElementById('import-file').value = '';
+      document.getElementById('import-menu-input').value = '';
+      document.getElementById('import-menu-item-input').value = '';
+      document.getElementById('import-dashboard-title-input').value = '';
+      document.getElementById('import-xml-preview').innerHTML = '';
+      importXmlBase = '';
+      importXmlPayload = '';
+      document.getElementById('import-status').textContent = '';
+      document.getElementById('import-status').className = 'text-sm font-medium';
+      document.getElementById('import-response-body').textContent = '';
+      document.getElementById('import-response-body').classList.add('hidden');
     }
   </script>
 
