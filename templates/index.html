@@ -164,17 +164,17 @@
       <div class="grid grid-cols-3 gap-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Dashboard Menu</label>
-          <input id="import-menu-input" type="text" oninput="onImportMetadataInput()"
+          <input id="import-menu-input" type="text" onchange="onImportMetadataInput()"
             class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500">
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Menu Item</label>
-          <input id="import-menu-item-input" type="text" oninput="onImportMetadataInput()"
+          <input id="import-menu-item-input" type="text" onchange="onImportMetadataInput()"
             class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500">
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Dashboard Title</label>
-          <input id="import-dashboard-title-input" type="text" oninput="onImportMetadataInput()"
+          <input id="import-dashboard-title-input" type="text" onchange="onImportMetadataInput()"
             class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-500">
         </div>
       </div>
@@ -421,21 +421,14 @@
       );
     }
 
-    let importPreviewDebounceTimer = null;
-
-    // Keystrokes only need to update the input's own displayed value, which the browser already
-    // does for free -- rebuilding and re-highlighting the full XML string on every character is
-    // what was slow. Defer that work until typing pauses.
+    // Fires on blur (only if the value changed), not per keystroke -- rebuilding and
+    // re-highlighting the full XML string while typing is what was slow.
     function onImportMetadataInput() {
-      clearTimeout(importPreviewDebounceTimer);
-      importPreviewDebounceTimer = setTimeout(() => {
-        syncImportXmlPayload();
-        renderImportPreview();
-      }, 500);
+      syncImportXmlPayload();
+      renderImportPreview();
     }
 
     async function importDashboard() {
-      clearTimeout(importPreviewDebounceTimer);
       syncImportXmlPayload();
       renderImportPreview();
 
